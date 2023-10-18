@@ -10,6 +10,8 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Set up necessary variables
+ROOT_DIR=$(pwd)
+PARENT_DIR=$(dirname "$ROOT_DIR")
 WORKDIR="../AutoGPT"
 ENV_FILE=".env"
 AI_SETTINGS_FILE="ai_settings.yaml"
@@ -83,8 +85,8 @@ if [ ! -d "AutoGPT-Mindware" ]; then
     rm -rf ./AutoGPT-Mindware
 fi
 
-# Navigate back to the working directory
-cd ..
+# Clean up installer and navigate to AutoGPT directory
+cd "$PARENT_DIR" && rm -rf ./AutoGPT-Mindware-Installer && cd ./AutoGPT
 
 # Run the Docker container
 docker compose run --rm auto-gpt --install-plugin-deps
