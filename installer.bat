@@ -1,6 +1,9 @@
 @echo off
 setlocal
 
+REM Get the full path to the script's current directory
+set CURRENT_DIR=%~dp0
+
 REM Check if Docker is installed
 docker --version >nul 2>&1
 if %errorlevel% neq 0 (
@@ -11,7 +14,7 @@ if %errorlevel% neq 0 (
 
 REM Set up necessary variables
 REM Update the WORKDIR to point to the parent directory
-set "WORKDIR=..\AutoGPT"
+set "WORKDIR=%CURRENT_DIR%..\AutoGPT"
 set "ENV_FILE=.env"
 set "AI_SETTINGS_FILE=ai_settings.yaml"
 set "PLUGINS_CONFIG_FILE=plugins_config.yaml"
@@ -20,14 +23,13 @@ set "PLUGINS_DIR=plugins"
 
 REM Create directory for AutoGPT in the parent of the current directory and navigate into it, if it doesn't exist
 if not exist "%WORKDIR%" mkdir "%WORKDIR%"
-cd "%WORKDIR%"
+cd /d "%WORKDIR%"
 
 REM Create necessary files if they don't exist
 type nul > "%ENV_FILE%"
 type nul > "%AI_SETTINGS_FILE%"
 
-REM Function to ask for API keys is not directly supported in Batch Scripting.
-REM We will ask and append directly in the main script.
+REM Ask for API keys and append them to the environment file
 set /p OPENAI_API_KEY=Please enter your OpenAI API key: 
 echo OPENAI_API_KEY=%OPENAI_API_KEY% >> "%ENV_FILE%"
 
@@ -72,21 +74,32 @@ docker pull significantgravitas/auto-gpt
 
 REM Create directory for plugins if it doesn't exist and navigate into it
 if not exist "%PLUGINS_DIR%" mkdir "%PLUGINS_DIR%"
-cd "%PLUGINS_DIR%"
+cd /d "%PLUGINS_DIR%"
 
 REM Pull the latest Mindware repository, zip it, and clean up
 if not exist "AutoGPT-Mindware" (
     git clone https://github.com/open-mindware/AutoGPT-Mindware.git
-    REM The 'zip' command is not native to Windows. You might need to use a third-party tool like 7-Zip here.
-    REM Assuming 7-Zip is installed and its command-line executable is available in your PATH.
+    REM Use 7-Zip to archive the folder, assuming it's installed and available in PATH.
     7z a -r AutoGPT-Mindware.zip .\AutoGPT-Mindware\
     rmdir /s /q .\AutoGPT-Mindware
 )
 
 REM Navigate back to the working directory
-cd ..
+cd /d "%WORKDIR%"
 
-REM Run the Docker container
-docker compose run --rm auto-gpt --install-plugin-deps
+REM Create a temporary script in the system's temp directory.
+REM This script will delete "AutoGPT-Mindware-Installer" and then run the Docker container.
+set TEMP_SCRIPT=%TEMP%\tempScript.bat
+(
+echo @echo off
+echo cd /d "%WORKDIR%"
+echo rmdir /s /q "%CURRENT_DIR%"
+echo docker compose run --rm auto-gpt --install-plugin-deps
+) > "%TEMP_SCRIPT%"
 
+REM Call the temporary script directly, without opening a new command prompt.
+call "%TEMP_SCRIPT%"
+
+REM End local environment and exit the script
 endlocal
+exit /b
